@@ -27,27 +27,53 @@ const decomposeFrame = (frame) => {
     } else {
         return null;
     }
-}
+};
 
-const doStuff = async () => {
-    const decomposedStacktrace = decomposeStacktrace(stack);
-    const decomposedFrames = decomposedStacktrace.trace.map(frame => decomposeFrame(frame)).filter(f => f != null);
-    const consumers = {}
-    for (const frame of decomposedFrames) {
-        if (consumers[frame.file] == null) {
-            const file = fs.readFileSync(`${frame.file}.map`, 'utf8');
-            consumers[frame.file] = await new sourceMap.SourceMapConsumer(file); // todo: try catch?
-        }
+const teardown = (consumers) => {
+    Object.keys(consumers).forEach(key => {
+        const consumer = consumers[key];
+        consumer.destroy();
+    });
+};
+
+const print = (mappedFrames) => {
+  mappedFrames.map(mappedFrame => {
+    console.log(`at ${mappedFrame.name} (${mappedFrame.source}:${mappedFrame.line})`)
+  });
+};
+
+const getDecomposedFrames = (decomposedStacktrace) => {
+  return decomposedStacktrace.trace.map(frame => decomposeFrame(frame)).filter(f => f != null);
+};
+
+const getMappedFrames = (decomposedFrames, consumers) => {
+  return decomposedFrames.map(frame => {
+    return consumers[frame.file].originalPositionFor({
+      line: parseInt(frame.line),
+      column: parseInt(frame.column)
+    });
+  });
+};
+
+const setupConsumers = async (decomposedFrames) => {
+  const consumers = {};
+  for (const frame of decomposedFrames) {
+    if (consumers[frame.file] == null) {
+      const file = fs.readFileSync(`${frame.file}.map`, 'utf8');
+      console.log('hello2');
+      consumers[frame.file] = await new sourceMap.SourceMapConsumer(file); // todo: try catch
     }
-    mappedFrames = decomposedFrames.map(frame => {
-        return consumers[frame.file].originalPositionFor({
-            line: parseInt(frame.line),
-            column: parseInt(frame.column)
-        });
-    });
-    mappedFrames.map(mappedFrame => {
-        console.log(`at ${mappedFrame.name} (${mappedFrame.source}:${mappedFrame.line})`)
-    });
-}
-doStuff();
+  }
+  return consumers;
+};
 
+const start = async () => {
+  const decomposedStacktrace = decomposeStacktrace(stack);
+  const decomposedFrames = getDecomposedFrames(decomposedStacktrace);
+  const consumers = await setupConsumers(decomposedFrames);
+  const mappedFrames = getMappedFrames(decomposedFrames, consumers);
+  print(mappedFrames);
+  teardown(consumers);
+};
+
+start();
