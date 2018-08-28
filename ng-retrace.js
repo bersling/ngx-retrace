@@ -1,10 +1,10 @@
 fs = require('fs');
 const sourceMap = require('source-map');
+const request = require('request');
 
 const MATCH_SOURCEMAP_PATTERN = /\((.*?)\:(\d+)\:(\d+)\)$/;
 
-const stack = "Error: hi i am error\n    at new <anonymous> (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:133740)\n    at qo (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:89214)\n    at Uo (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:88292)\n    at vi (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:97689)\n    at di (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:96478)\n    at Object.Di [as createRootView] (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:105654)\n    at t.create (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:78819)\n    at t.create (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:31343)\n    at e.bootstrap (http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:44177)\n    at http://localhost:3474/main.c8ae2bdbfe34f0785383.js:1:40812";
-
+const stack = "Error: i am error\n    at e.doError2 (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:125997)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:276172)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:97196)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:118943)\n    at Br (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:70109)\n    at http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:75323\n    at HTMLButtonElement.<anonymous> (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:161189)\n    at e.invokeTask (http://dev5.demo.taskbase.com/polyfills.a9c1408b8b24d052720b.js:1:7960)\n    at Object.onInvokeTask (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:31320)\n    at e.invokeTask (http://dev5.demo.taskbase.com/polyfills.a9c1408b8b24d052720b.js:1:7881)";
 
 const decomposeStacktrace = (stacktrace) => {
     const [message, ...trace] = stacktrace.split('\n');
@@ -12,7 +12,7 @@ const decomposeStacktrace = (stacktrace) => {
         message: message,
         trace: trace
     };
-}
+};
 
 const decomposeFrame = (frame) => {
     const re = new RegExp(MATCH_SOURCEMAP_PATTERN);
@@ -37,8 +37,9 @@ const teardown = (consumers) => {
 };
 
 const print = (mappedFrames) => {
-  mappedFrames.map(mappedFrame => {
-    console.log(`at ${mappedFrame.name} (${mappedFrame.source}:${mappedFrame.line})`)
+  mappedFrames.map((mappedFrame, idx) => {
+    const name = mappedFrames[idx+1] ? mappedFrames[idx+1].name : 'null'; // for some weird reason the mapped names are one behind...?
+    console.log(`at ${name} (${mappedFrame.source}:${mappedFrame.line})`)
   });
 };
 
@@ -55,12 +56,30 @@ const getMappedFrames = (decomposedFrames, consumers) => {
   });
 };
 
-const setupConsumers = async (decomposedFrames) => {
+const fetchFromUrl = (url) => {
+  return new Promise((resolve, reject) => {
+    request(url, (error, response, body) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(body);
+      }
+    })
+  });
+};
+
+const setupConsumers = async (decomposedFrames, method) => {
   const consumers = {};
   for (const frame of decomposedFrames) {
     if (consumers[frame.file] == null) {
-      const file = fs.readFileSync(`${frame.file}.map`, 'utf8');
-      consumers[frame.file] = await new sourceMap.SourceMapConsumer(file); // todo: try catch
+      let file;
+      if (method === 'http') {
+        const url = `${frame.location}.map`;
+        file = await fetchFromUrl(url);
+      } else {
+        file = fs.readFileSync(`${frame.file}.map`, 'utf8');
+      }
+      consumers[frame.file] = await new sourceMap.SourceMapConsumer(file);
     }
   }
   return consumers;
@@ -69,7 +88,7 @@ const setupConsumers = async (decomposedFrames) => {
 const start = async () => {
   const decomposedStacktrace = decomposeStacktrace(stack);
   const decomposedFrames = getDecomposedFrames(decomposedStacktrace);
-  const consumers = await setupConsumers(decomposedFrames);
+  const consumers = await setupConsumers(decomposedFrames, 'http');
   const mappedFrames = getMappedFrames(decomposedFrames, consumers);
   print(mappedFrames);
   teardown(consumers);
