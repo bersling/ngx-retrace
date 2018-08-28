@@ -1,6 +1,7 @@
 const fs = require('fs');
 const sourceMap = require('source-map');
 const request = require('request');
+const debug = require('@google-cloud/debug-agent').start({ allowExpressions: true });
 
 const MATCH_SOURCEMAP_PATTERN = /\((.*?)\:(\d+)\:(\d+)\)$/;
 
@@ -104,13 +105,20 @@ const retrace = async (stack) => {
 };
 
 exports.retrace = async (req, res) => {
+  await debug.isReady();
   res.set('Access-Control-Allow-Origin', "*");
   res.set('Access-Control-Allow-Headers', "Content-Type, Authorization");
   res.set('Access-Control-Allow-Methods', 'GET, POST');
   const postData = req.body;
-  const mappedTrace = await retrace(postData.stacktrace);
-  res.status(200).send({
-    mappedStacktrace: mappedTrace
-  });
+  try {
+    const mappedTrace = await retrace(postData.stacktrace);
+    res.status(200).send({
+      mappedStacktrace: mappedTrace
+    });
+  } catch(err) {
+    res.status(500).send({
+      err: err
+    })
+  }
 };
 
