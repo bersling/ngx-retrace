@@ -60,7 +60,6 @@ const setupConsumers = async (decomposedFrames) => {
   for (const frame of decomposedFrames) {
     if (consumers[frame.file] == null) {
       const file = fs.readFileSync(`${frame.file}.map`, 'utf8');
-      console.log('hello2');
       consumers[frame.file] = await new sourceMap.SourceMapConsumer(file); // todo: try catch
     }
   }
