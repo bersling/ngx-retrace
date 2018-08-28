@@ -2,9 +2,12 @@
   "name": "ng-retrace",
   "version": "1.0.0",
   "description": "",
-  "main": "ng-retrace.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy:local": "npm run build && functions deploy retrace --region europe-west1 --trigger-http",
+    "deploy:prod": "npm run build && gcloud beta functions deploy retrace --region europe-west1 --trigger-http"
   },
   "author": "",
   "license": "ISC",

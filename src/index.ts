@@ -1,39 +1,37 @@
-fs = require('fs');
+const fs = require('fs');
 const sourceMap = require('source-map');
 const request = require('request');
 
 const MATCH_SOURCEMAP_PATTERN = /\((.*?)\:(\d+)\:(\d+)\)$/;
 
-const stack = "Error: i am error\n    at e.doError2 (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:125997)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:276172)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:97196)\n    at Object.handleEvent (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:118943)\n    at Br (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:70109)\n    at http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:75323\n    at HTMLButtonElement.<anonymous> (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:161189)\n    at e.invokeTask (http://dev5.demo.taskbase.com/polyfills.a9c1408b8b24d052720b.js:1:7960)\n    at Object.onInvokeTask (http://dev5.demo.taskbase.com/main.f74ac97134538c395883.js:1:31320)\n    at e.invokeTask (http://dev5.demo.taskbase.com/polyfills.a9c1408b8b24d052720b.js:1:7881)";
-
 const decomposeStacktrace = (stacktrace) => {
-    const [message, ...trace] = stacktrace.split('\n');
-    return {
-        message: message,
-        trace: trace
-    };
+  const [message, ...trace] = stacktrace.split('\n');
+  return {
+    message: message,
+    trace: trace
+  };
 };
 
 const decomposeFrame = (frame) => {
-    const re = new RegExp(MATCH_SOURCEMAP_PATTERN);
-    const res = re.exec(frame);
-    if (res) {
-        return {
-            location: res[1],
-            file: res[1].split('/')[3],
-            line: res[2],
-            column: res[3]
-        };
-    } else {
-        return null;
-    }
+  const re = new RegExp(MATCH_SOURCEMAP_PATTERN);
+  const res = re.exec(frame);
+  if (res) {
+    return {
+      location: res[1],
+      file: res[1].split('/')[3],
+      line: res[2],
+      column: res[3]
+    };
+  } else {
+    return null;
+  }
 };
 
 const teardown = (consumers) => {
-    Object.keys(consumers).forEach(key => {
-        const consumer = consumers[key];
-        consumer.destroy();
-    });
+  Object.keys(consumers).forEach(key => {
+    const consumer = consumers[key];
+    consumer.destroy();
+  });
 };
 
 const print = (mappedFrames) => {
@@ -41,6 +39,15 @@ const print = (mappedFrames) => {
     const name = mappedFrames[idx+1] ? mappedFrames[idx+1].name : 'null'; // for some weird reason the mapped names are one behind...?
     console.log(`at ${name} (${mappedFrame.source}:${mappedFrame.line})`)
   });
+};
+
+const serializeMappedFrames = (mappedFrames) => {
+  let str = '';
+  mappedFrames.map((mappedFrame, idx) => {
+    const name = mappedFrames[idx+1] ? mappedFrames[idx+1].name : 'null'; // for some weird reason the mapped names are one behind...?
+    str = str + `at ${name} (${mappedFrame.source}:${mappedFrame.line})\n`;
+  });
+  return str;
 };
 
 const getDecomposedFrames = (decomposedStacktrace) => {
@@ -85,13 +92,25 @@ const setupConsumers = async (decomposedFrames, method) => {
   return consumers;
 };
 
-const start = async () => {
+const retrace = async (stack) => {
   const decomposedStacktrace = decomposeStacktrace(stack);
   const decomposedFrames = getDecomposedFrames(decomposedStacktrace);
   const consumers = await setupConsumers(decomposedFrames, 'http');
   const mappedFrames = getMappedFrames(decomposedFrames, consumers);
-  print(mappedFrames);
+  // print(mappedFrames);
+  const mappedTrace = serializeMappedFrames(mappedFrames);
   teardown(consumers);
+  return mappedTrace;
 };
 
-start();
+exports.retrace = async (req, res) => {
+  res.set('Access-Control-Allow-Origin', "*");
+  res.set('Access-Control-Allow-Headers', "Content-Type, Authorization");
+  res.set('Access-Control-Allow-Methods', 'GET, POST');
+  const postData = req.body;
+  const mappedTrace = await retrace(postData.stacktrace);
+  res.status(200).send({
+    mappedStacktrace: mappedTrace
+  });
+};
+
