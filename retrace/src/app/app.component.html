@@ -1,0 +1,16 @@
+<div>
+  <textarea name=""
+            id=""
+            placeholder="Paste your ugly stacktrace here..."
+            class="txt"
+            [(ngModel)]="txt"
+            rows="10"></textarea>
+</div>
+<div class="controls">
+  <div *ngIf="loading">
+    Loading...
+  </div>
+  <button (click)="doRetrace()" *ngIf="!loading">
+    Retrace
+  </button>
+</div>

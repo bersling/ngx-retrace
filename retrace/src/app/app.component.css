@@ -1,0 +1,16 @@
+.txt {
+    width: 100%;
+}
+
+.controls {
+    display: flex;
+    justify-content: flex-end;
+}
+
+button {
+    background: green;
+    color: white;
+    font-size: 18px;
+}
+
+
