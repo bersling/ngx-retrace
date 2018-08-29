@@ -19,8 +19,9 @@ export class AppComponent {
 
   doRetrace() {
     this.loading = true;
+    this.result = '';
     this.retraceService.retrace(this.txt).subscribe((resp: any) => {
-      this.result = resp.stacktrace;
+      this.result = resp.mappedStacktrace;
       this.loading = false;
     }, errorResp => {
       alert('error! see console.');

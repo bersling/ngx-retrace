@@ -1,3 +1,4 @@
+<h1>Retrace</h1>
 <div>
   <textarea name=""
             id=""
@@ -6,6 +7,9 @@
             [(ngModel)]="txt"
             rows="10"></textarea>
 </div>
+<pre class="result" *ngIf="result">
+  {{result}}
+</pre>
 <div class="controls">
   <div *ngIf="loading">
     Loading...
