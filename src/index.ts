@@ -111,17 +111,18 @@ exports.retrace = async (req, res) => {
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method == 'OPTIONS') {
     res.status(204).send('');
-  }
-  const postData = req.body;
-  try {
-    const mappedTrace = await retrace(postData.stacktrace);
-    res.status(200).send({
-      mappedStacktrace: mappedTrace
-    });
-  } catch(err) {
-    res.status(500).send({
-      err: err
-    })
+  } else {
+    const postData = req.body;
+    try {
+      const mappedTrace = await retrace(postData.stacktrace);
+      res.status(200).send({
+        mappedStacktrace: mappedTrace
+      });
+    } catch(err) {
+      res.status(500).send({
+        err: err
+      })
+    }
   }
 };
 
