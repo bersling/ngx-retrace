@@ -106,7 +106,7 @@ const retrace = async (stack) => {
 
 exports.retrace = async (req, res) => {
   await debug.isReady();
-  res.set('Access-Control-Allow-Origin', req.get('origin'));
+  res.set('Access-Control-Allow-Origin', req.get('origin') || req.get('Origin') || '*');
   res.set('Access-Control-Allow-Headers', "Accept-Encoding, Accept-Language, Cache-Control, Connection, Content-Length, Content-Type, Host, Origin, Pragma, Referer, User-Agent");
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method == 'OPTIONS') {
